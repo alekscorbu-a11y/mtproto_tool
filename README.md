@@ -24,7 +24,7 @@ pip install -r requirements.txt
 ## Запуск
 
 ```bash
-python checker_gui_final.py
+python mtprotool.py
 ```
 
 ## Как пользоваться
@@ -49,7 +49,7 @@ python checker_gui_final.py
 
 ## Файлы
 
-- `checker_gui_final.py` - основное приложение
+- `mtprotool.py` - основное приложение
 - `locales.py` - переводы
 - `config.json` - настройки (создается автоматически)
 - `proxy_results.json` - сохраненные результаты
@@ -62,6 +62,11 @@ python checker_gui_final.py
 - qrcode[pil]
 - pillow
 - pycountry
+- countryinfo
+
+## 🔒 Безопасность
+
+Подробную информацию о политике безопасности см. в [SECURITY.md](SECURITY.md)
 
 ## Лицензия
 

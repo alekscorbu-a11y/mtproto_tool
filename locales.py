@@ -32,6 +32,7 @@ LANGUAGES = {
         'neighbors_title': 'Соседи',
         'label_country_code': 'Код страны:',
         'btn_find': 'Найти',
+        'port_all': 'Все',
         
         # Tree columns
         'col_num': '№',
@@ -116,6 +117,7 @@ LANGUAGES = {
         'neighbors_title': 'Neighbors',
         'label_country_code': 'Country code:',
         'btn_find': 'Find',
+        'port_all': 'All',
         
         # Tree columns
         'col_num': '#',
@@ -171,7 +173,7 @@ LANGUAGES = {
     }
 }
 
-# TODO: add more languages (DE, FR, ES, etc)
+# TODO: add more languages (Hindi, PT, ES, FR, etc)
 
 def get_text(lang, key):
     """Get localized text"""

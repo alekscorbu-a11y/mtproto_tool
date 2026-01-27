@@ -1,1 +1,1 @@
-{"language": "en"}
+{"language": "ru", "API_URL": "https://mtpro.xyz/api/?type=mtproto", "DEFAULT_PING_COUNT": 3, "PING_TIMEOUT": 5, "REQUEST_TIMEOUT": 10}

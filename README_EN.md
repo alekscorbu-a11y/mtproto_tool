@@ -24,7 +24,7 @@ pip install -r requirements.txt
 ## Usage
 
 ```bash
-python checker_gui_final.py
+python mtprotool.py
 ```
 
 ## How to Use
@@ -49,7 +49,7 @@ Select language in top-right corner. Your choice will be saved.
 
 ## Files
 
-- `checker_gui_final.py` - main application
+- `mtprotool.py` - main application
 - `locales.py` - translations
 - `config.json` - settings (auto-created)
 - `proxy_results.json` - saved results
@@ -62,6 +62,11 @@ Select language in top-right corner. Your choice will be saved.
 - qrcode[pil]
 - pillow
 - pycountry
+- countryinfo
+
+## 🔒 Security
+
+For detailed security policy, see [SECURITY_EN.md](SECURITY_EN.md)
 
 ## License
 

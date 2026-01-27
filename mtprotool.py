@@ -14,11 +14,12 @@ from countryinfo import CountryInfo
 import locales
 # import sys
 
-# TODO: move to config file
+# TODO: load from config file
 API_URL = 'https://mtpro.xyz/api/?type=mtproto'
 DEFAULT_PING_COUNT = 3
 PING_TIMEOUT = 5
 REQUEST_TIMEOUT = 10
+
 CONFIG_FILE = 'config.json'
 
 
@@ -47,6 +48,7 @@ class ProxyCheckerGUI:
         
         self.proxies = []
         self.filtered_proxies = []
+        self.checking_list = []  #  список после фильтрации
         self.is_checking = False
         self.stop_checking = False
         self.check_batch_size = 20
@@ -61,12 +63,12 @@ class ProxyCheckerGUI:
         top.pack(fill=tk.X)
         
         self.start_btn = ttk.Button(top, text=locales.get_text(self.current_lang, 'btn_load'), 
-                                     command=self.start_loading, width=25)
+                                     command=self.start_loading, width=15)
         self.start_btn.pack(side=tk.LEFT, padx=5)
         
         self.check_btn = ttk.Button(top, text=locales.get_text(self.current_lang, 'btn_check'), 
                                      command=self.start_checking_all,
-                                     state=tk.DISABLED, width=25)
+                                     state=tk.DISABLED, width=15)
         self.check_btn.pack(side=tk.LEFT, padx=5)
         
         self.save_btn = ttk.Button(
@@ -74,23 +76,25 @@ class ProxyCheckerGUI:
             text=locales.get_text(self.current_lang, 'btn_save'),
             command=self.save_results,
             state=tk.DISABLED,
-            width=15
+            width=10
         )
         self.save_btn.pack(side=tk.LEFT, padx=5)
         
-        ttk.Label(top, text=locales.get_text(self.current_lang, 'label_batch')).pack(side=tk.LEFT, padx=(20, 5))
+        self.label_batch = ttk.Label(top, text=locales.get_text(self.current_lang, 'label_batch'))
+        self.label_batch.pack(side=tk.LEFT, padx=(10, 5))
         self.batch_size_var = tk.StringVar(value="20")
         ttk.Spinbox(top, from_=10, to=200, textvariable=self.batch_size_var, width=8).pack(side=tk.LEFT)
         
-        ttk.Label(top, text=locales.get_text(self.current_lang, 'label_interface')).pack(side=tk.LEFT, padx=(20, 5))
+        self.label_interface = ttk.Label(top, text=locales.get_text(self.current_lang, 'label_interface'))
+        self.label_interface.pack(side=tk.LEFT, padx=(10, 5))
         self.interface_var = tk.StringVar(value=locales.get_text(self.current_lang, 'interface_auto'))
         self.interface_combo = ttk.Combobox(top, textvariable=self.interface_var, width=15, state='readonly')
         self.interface_combo['values'] = self.get_interfaces()
         self.interface_combo.pack(side=tk.LEFT, padx=5)
         self.interface_combo.bind('<<ComboboxSelected>>', self.on_iface_change)
         
-        # language selector
-        ttk.Label(top, text=locales.get_text(self.current_lang, 'label_language')).pack(side=tk.LEFT, padx=(20, 5))
+        self.label_language = ttk.Label(top, text=locales.get_text(self.current_lang, 'label_language'))
+        self.label_language.pack(side=tk.LEFT, padx=(20, 5))
         lang_display = 'English' if self.current_lang == 'en' else 'Русский'
         self.lang_var = tk.StringVar(value=lang_display)
         self.lang_combo = ttk.Combobox(top, textvariable=self.lang_var, width=10, state='readonly')
@@ -98,7 +102,6 @@ class ProxyCheckerGUI:
         self.lang_combo.pack(side=tk.LEFT, padx=5)
         self.lang_combo.bind('<<ComboboxSelected>>', self.on_lang_change)
         
-        # stats
         stats = ttk.Frame(self.root, padding="10")
         stats.pack(fill=tk.X)
         
@@ -112,7 +115,6 @@ class ProxyCheckerGUI:
         self.progress_label = ttk.Label(stats, text="0/0")
         self.progress_label.pack(side=tk.LEFT)
         
-        # toggles
         toggle_frame = ttk.Frame(self.root, padding="10")
         toggle_frame.pack(fill=tk.X)
         
@@ -128,34 +130,37 @@ class ProxyCheckerGUI:
                                                command=self.toggle_neighbors, width=15)
         self.toggle_neighbors_btn.pack(side=tk.LEFT, padx=5)
         
-        ttk.Button(toggle_frame, text=locales.get_text(self.current_lang, 'btn_only_alive'), 
-                  command=self.show_available_only).pack(side=tk.LEFT, padx=5)
-        ttk.Button(toggle_frame, text=locales.get_text(self.current_lang, 'btn_show_all'), 
-                  command=self.show_all).pack(side=tk.LEFT, padx=5)
+        self.btn_only_alive = ttk.Button(toggle_frame, text=locales.get_text(self.current_lang, 'btn_only_alive'), 
+                  command=self.show_available_only)
+        self.btn_only_alive.pack(side=tk.LEFT, padx=5)
+        self.btn_show_all = ttk.Button(toggle_frame, text=locales.get_text(self.current_lang, 'btn_show_all'), 
+                  command=self.show_all)
+        self.btn_show_all.pack(side=tk.LEFT, padx=5)
         
-        # search
         search_frame = ttk.Frame(self.root, padding="10")
         search_frame.pack(fill=tk.X)
-        ttk.Label(search_frame, text=locales.get_text(self.current_lang, 'label_search')).pack(side=tk.LEFT, padx=5)
+        self.label_search = ttk.Label(search_frame, text=locales.get_text(self.current_lang, 'label_search'))
+        self.label_search.pack(side=tk.LEFT, padx=5)
         self.filter_var = tk.StringVar()
         filter_entry = ttk.Entry(search_frame, textvariable=self.filter_var, width=30)
         filter_entry.pack(side=tk.LEFT, padx=5)
         filter_entry.bind('<KeyRelease>', lambda e: self.apply_filter())
         
-        # filter panel
         self.filter_container = ttk.LabelFrame(self.root, 
                                                text=locales.get_text(self.current_lang, 'filter_title'), 
                                                padding="10")
         filter_fr = ttk.Frame(self.filter_container, padding="5")
         filter_fr.pack(fill=tk.X)
         
-        ttk.Label(filter_fr, text=locales.get_text(self.current_lang, 'label_countries')).pack(side=tk.LEFT, padx=(15, 5))
+        self.label_countries = ttk.Label(filter_fr, text=locales.get_text(self.current_lang, 'label_countries'))
+        self.label_countries.pack(side=tk.LEFT, padx=(15, 5))
         self.include_countries_var = tk.StringVar()
         inc_entry = ttk.Entry(filter_fr, textvariable=self.include_countries_var, width=20)
         inc_entry.pack(side=tk.LEFT, padx=5)
         inc_entry.bind('<KeyRelease>', lambda e: self.apply_filter())
         
-        ttk.Label(filter_fr, text=locales.get_text(self.current_lang, 'label_exclude')).pack(side=tk.LEFT, padx=(10, 5))
+        self.label_exclude_countries = ttk.Label(filter_fr, text=locales.get_text(self.current_lang, 'label_exclude'))
+        self.label_exclude_countries.pack(side=tk.LEFT, padx=(10, 5))
         self.exclude_countries_var = tk.StringVar()
         exc_entry = ttk.Entry(filter_fr, textvariable=self.exclude_countries_var, width=20)
         exc_entry.pack(side=tk.LEFT, padx=5)
@@ -163,45 +168,45 @@ class ProxyCheckerGUI:
         
         filter_fr2 = ttk.Frame(self.filter_container, padding="10")
         filter_fr2.pack(fill=tk.X)
-        ttk.Label(filter_fr2, text=locales.get_text(self.current_lang, 'label_port')).pack(side=tk.LEFT, padx=5)
-        self.port_var = tk.StringVar(value="Все")
+        self.label_port = ttk.Label(filter_fr2, text=locales.get_text(self.current_lang, 'label_port'))
+        self.label_port.pack(side=tk.LEFT, padx=5)
+        self.port_var = tk.StringVar(value=locales.get_text(self.current_lang, 'port_all'))
         self.port_combo = ttk.Combobox(filter_fr2, textvariable=self.port_var, width=10, state='readonly')
-        self.port_combo['values'] = ['Все']
+        self.port_combo['values'] = [locales.get_text(self.current_lang, 'port_all')]
         self.port_combo.pack(side=tk.LEFT, padx=5)
         self.port_combo.bind('<<ComboboxSelected>>', lambda e: self.apply_filter())
         
-        ttk.Label(filter_fr2, text=locales.get_text(self.current_lang, 'label_exclude_ports')).pack(side=tk.LEFT, padx=(10, 5))
+        self.label_exclude_ports = ttk.Label(filter_fr2, text=locales.get_text(self.current_lang, 'label_exclude_ports'))
+        self.label_exclude_ports.pack(side=tk.LEFT, padx=(10, 5))
         self.exclude_ports_var = tk.StringVar()
         exc_ports = ttk.Entry(filter_fr2, textvariable=self.exclude_ports_var, width=20)
         exc_ports.pack(side=tk.LEFT, padx=5)
         exc_ports.bind('<KeyRelease>', lambda e: self.apply_filter())
-        ttk.Label(filter_fr2, text=locales.get_text(self.current_lang, 'hint_comma')).pack(side=tk.LEFT, padx=5)
+        self.label_hint_comma = ttk.Label(filter_fr2, text=locales.get_text(self.current_lang, 'hint_comma'))
+        self.label_hint_comma.pack(side=tk.LEFT, padx=5)
         
         # neighbors panel
-        self.neighbors_container = ttk.LabelFrame(self.root, 
-                                                  text=locales.get_text(self.current_lang, 'neighbors_title'), 
-                                                  padding="10")
+        self.neighbors_container = ttk.LabelFrame(self.root, text=locales.get_text(self.current_lang, 'neighbors_title'), padding="10")
         neighbors_fr = ttk.Frame(self.neighbors_container, padding="5")
         neighbors_fr.pack(fill=tk.X)
-        ttk.Label(neighbors_fr, text=locales.get_text(self.current_lang, 'label_country_code')).pack(side=tk.LEFT, padx=(15, 5))
+        self.label_country_code = ttk.Label(neighbors_fr, text=locales.get_text(self.current_lang, 'label_country_code'))
+        self.label_country_code.pack(side=tk.LEFT, padx=(15, 5))
         self.neighbors_source_var = tk.StringVar()
         ttk.Entry(neighbors_fr, textvariable=self.neighbors_source_var, width=6).pack(side=tk.LEFT, padx=5)
-        ttk.Button(neighbors_fr, text=locales.get_text(self.current_lang, 'btn_find'), 
-                  command=self.fetch_neighbors).pack(side=tk.LEFT, padx=5)
+        self.btn_find_neighbors = ttk.Button(neighbors_fr, text=locales.get_text(self.current_lang, 'btn_find'), 
+                  command=self.fetch_neighbors)
+        self.btn_find_neighbors.pack(side=tk.LEFT, padx=5)
         
-        # tree
         tree_frame = ttk.Frame(self.root, padding="10")
         tree_frame.pack(fill=tk.BOTH, expand=True)
         
         scrollbar = ttk.Scrollbar(tree_frame)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
-        # Use constant column IDs, localize only headings
         cols = ("num", "status", "ping", "host", "port", "country", "provider", "uptime")
         self.tree = ttk.Treeview(tree_frame, columns=cols, show="headings", yscrollcommand=scrollbar.set)
         scrollbar.config(command=self.tree.yview)
         
-        # Set localized headings
         self.tree.heading("num", text=locales.get_text(self.current_lang, 'col_num'))
         self.tree.heading("status", text=locales.get_text(self.current_lang, 'col_status'))
         self.tree.heading("ping", text=locales.get_text(self.current_lang, 'col_ping'))
@@ -211,14 +216,13 @@ class ProxyCheckerGUI:
         self.tree.heading("provider", text=locales.get_text(self.current_lang, 'col_provider'))
         self.tree.heading("uptime", text=locales.get_text(self.current_lang, 'col_uptime'))
         
-        # Set column widths using constant IDs
         self.tree.column("num", width=50, anchor=tk.CENTER, stretch=False)
         self.tree.column("status", width=70, anchor=tk.CENTER, stretch=False)
         self.tree.column("ping", width=100, anchor=tk.CENTER, stretch=False)
-        self.tree.column("host", width=400, stretch=True)
+        self.tree.column("host", width=300, stretch=True)
         self.tree.column("port", width=70, anchor=tk.CENTER, stretch=False)
         self.tree.column("country", width=70, anchor=tk.CENTER, stretch=False)
-        self.tree.column("provider", width=250, stretch=True)
+        self.tree.column("provider", width=200, stretch=True)
         self.tree.column("uptime", width=90, anchor=tk.CENTER, stretch=False)
         
         self.tree.pack(fill=tk.BOTH, expand=True)
@@ -260,12 +264,10 @@ class ProxyCheckerGUI:
             alpha3_borders = country.borders()
             
             if not alpha3_borders:
-                # Island nation or country without land borders
                 messagebox.showinfo(locales.get_text(self.current_lang, 'msg_neighbors_result'), 
                                    locales.get_text(self.current_lang, 'msg_no_land_borders'))
                 return
             
-            # Convert Alpha-3 to Alpha-2
             alpha2_borders = []
             for alpha3_code in alpha3_borders:
                 try:
@@ -306,6 +308,81 @@ class ProxyCheckerGUI:
         else:
             self.selected_interface = sel.split(' ')[0]
     
+    def refresh_ui_texts(self):
+        self.root.title(locales.get_text(self.current_lang, 'app_title'))
+        
+        self.start_btn.config(text=locales.get_text(self.current_lang, 'btn_load'))
+        if self.is_checking:
+            self.check_btn.config(text=locales.get_text(self.current_lang, 'btn_stop'))
+        else:
+            self.check_btn.config(text=locales.get_text(self.current_lang, 'btn_check'))
+        self.save_btn.config(text=locales.get_text(self.current_lang, 'btn_save'))
+        self.label_batch.config(text=locales.get_text(self.current_lang, 'label_batch'))
+
+        self.label_interface.config(text=locales.get_text(self.current_lang, 'label_interface'))
+        self.label_language.config(text=locales.get_text(self.current_lang, 'label_language'))
+        
+        current_selection = self.interface_combo.current()
+        interfaces = self.get_interfaces()
+        self.interface_combo['values'] = interfaces
+        if current_selection >= 0:
+            self.interface_combo.current(current_selection)
+        
+        if self.filter_visible.get():
+            self.toggle_filter_btn.config(text="▼ " + locales.get_text(self.current_lang, 'btn_filters'))
+        else:
+            self.toggle_filter_btn.config(text="▶ " + locales.get_text(self.current_lang, 'btn_filters'))
+        
+        if self.neighbors_visible.get():
+            self.toggle_neighbors_btn.config(text="▼ " + locales.get_text(self.current_lang, 'btn_neighbors'))
+        else:
+            self.toggle_neighbors_btn.config(text="▶ " + locales.get_text(self.current_lang, 'btn_neighbors'))
+        
+        self.btn_only_alive.config(text=locales.get_text(self.current_lang, 'btn_only_alive'))
+        self.btn_show_all.config(text=locales.get_text(self.current_lang, 'btn_show_all'))
+        
+        self.label_search.config(text=locales.get_text(self.current_lang, 'label_search'))
+        
+        self.filter_container.config(text=locales.get_text(self.current_lang, 'filter_title'))
+        self.label_countries.config(text=locales.get_text(self.current_lang, 'label_countries'))
+        self.label_exclude_countries.config(text=locales.get_text(self.current_lang, 'label_exclude'))
+        self.label_port.config(text=locales.get_text(self.current_lang, 'label_port'))
+        self.label_exclude_ports.config(text=locales.get_text(self.current_lang, 'label_exclude_ports'))
+        self.label_hint_comma.config(text=locales.get_text(self.current_lang, 'hint_comma'))
+        
+        current_port = self.port_var.get()
+        port_all_ru = locales.get_text('ru', 'port_all')
+        port_all_en = locales.get_text('en', 'port_all')
+        port_all_new = locales.get_text(self.current_lang, 'port_all')
+        
+        current_values = list(self.port_combo['values'])
+        new_values = []
+        for val in current_values:
+            if val == port_all_ru or val == port_all_en:
+                new_values.append(port_all_new)
+            else:
+                new_values.append(val)
+        self.port_combo['values'] = new_values
+        
+        if current_port == port_all_ru or current_port == port_all_en:
+            self.port_var.set(port_all_new)
+        
+        self.neighbors_container.config(text=locales.get_text(self.current_lang, 'neighbors_title'))
+        self.label_country_code.config(text=locales.get_text(self.current_lang, 'label_country_code'))
+        self.btn_find_neighbors.config(text=locales.get_text(self.current_lang, 'btn_find'))
+        
+        self.tree.heading("num", text=locales.get_text(self.current_lang, 'col_num'))
+        self.tree.heading("status", text=locales.get_text(self.current_lang, 'col_status'))
+        self.tree.heading("ping", text=locales.get_text(self.current_lang, 'col_ping'))
+        self.tree.heading("host", text=locales.get_text(self.current_lang, 'col_host'))
+        self.tree.heading("port", text=locales.get_text(self.current_lang, 'col_port'))
+        self.tree.heading("country", text=locales.get_text(self.current_lang, 'col_country'))
+        self.tree.heading("provider", text=locales.get_text(self.current_lang, 'col_provider'))
+        self.tree.heading("uptime", text=locales.get_text(self.current_lang, 'col_uptime'))
+        
+        if hasattr(self, 'filtered_proxies'):
+            self.display_proxies(self.filtered_proxies)
+    
     def on_lang_change(self, event):
         sel = self.lang_var.get()
         if sel == 'English':
@@ -316,22 +393,10 @@ class ProxyCheckerGUI:
         self.config['language'] = self.current_lang
         save_config(self.config)
         
-        # Update tree headings immediately
-        self.tree.heading("num", text=locales.get_text(self.current_lang, 'col_num'))
-        self.tree.heading("status", text=locales.get_text(self.current_lang, 'col_status'))
-        self.tree.heading("ping", text=locales.get_text(self.current_lang, 'col_ping'))
-        self.tree.heading("host", text=locales.get_text(self.current_lang, 'col_host'))
-        self.tree.heading("port", text=locales.get_text(self.current_lang, 'col_port'))
-        self.tree.heading("country", text=locales.get_text(self.current_lang, 'col_country'))
-        self.tree.heading("provider", text=locales.get_text(self.current_lang, 'col_provider'))
-        self.tree.heading("uptime", text=locales.get_text(self.current_lang, 'col_uptime'))
-        
-        self.root.title(locales.get_text(self.current_lang, 'app_title'))
-        msg = 'Language changed. Restart app for full effect.' if self.current_lang == 'en' else 'Язык изменен. Перезапустите приложение для полной смены языка.'
-        messagebox.showinfo(locales.get_text(self.current_lang, 'msg_ok'), msg)
+        self.refresh_ui_texts()
 
     def get_interfaces(self):
-        ifaces = ['Авто']
+        ifaces = [locales.get_text(self.current_lang, 'interface_auto')]
         try:
             for iface in netifaces.interfaces():
                 addrs = netifaces.ifaddresses(iface)
@@ -339,7 +404,7 @@ class ProxyCheckerGUI:
                     ip = addrs[netifaces.AF_INET][0]['addr']
                     ifaces.append(f"{iface} ({ip})")
         except:
-            pass  # if fails, just return default
+            pass  
         return ifaces
 
     def load_proxies(self):
@@ -362,6 +427,7 @@ class ProxyCheckerGUI:
         self.stats_label.config(text=locales.get_text(self.current_lang, 'status_loaded') % len(self.proxies))
         self.check_btn.config(state=tk.NORMAL)
         self.save_btn.config(state=tk.NORMAL)
+        self.label_batch.config(state=tk.NORMAL)
         self.current_batch_index = 0
         
         ports = []
@@ -375,11 +441,10 @@ class ProxyCheckerGUI:
         self.apply_filter()
     
     def display_proxies(self, plist):
-        # clear existing
         for item in self.tree.get_children():
             self.tree.delete(item)
         
-        # print(f"DEBUG: displaying {len(plist)} proxies")  # FIXME: remove before release
+        # print(f"DEBUG: displaying {len(plist)} proxies")  
         
         for num, p in enumerate(plist, 1):
             ping = p.get('measured_ping')
@@ -411,8 +476,10 @@ class ProxyCheckerGUI:
             self.stats_label.config(text=locales.get_text(self.current_lang, 'status_stopping'))
             return
         
+        self.apply_filter()
+        
         unchecked = []
-        for p in self.proxies:
+        for p in self.filtered_proxies:
             if p.get('measured_ping') is None:
                 unchecked.append(p)
         
@@ -420,6 +487,8 @@ class ProxyCheckerGUI:
             messagebox.showinfo(locales.get_text(self.current_lang, 'msg_done_title'), 
                                locales.get_text(self.current_lang, 'msg_all_checked'))
             return
+        
+        self.checking_list = unchecked.copy()
         
         self.is_checking = True
         self.stop_checking = False
@@ -436,12 +505,7 @@ class ProxyCheckerGUI:
         except:
             workers = 50
         
-        unchecked = []
-        for p in self.proxies:
-            if p.get('measured_ping') is None:
-                unchecked.append(p)
-        
-        total = len(unchecked)
+        total = len(self.checking_list)
         
         if total == 0:
             self.root.after(0, self.on_check_done)
@@ -467,14 +531,13 @@ class ProxyCheckerGUI:
             self.root.after(0, lambda: self.stats_label.config(
                 text=locales.get_text(self.current_lang, 'status_checking') % (done, total)))
             
-            # update UI every 10 proxies to avoid freezing
             if done - last_update >= 10 or done == total:
                 last_update = done
                 self.root.after(0, self.sort_by_ping)
                 self.root.after(0, self.apply_filter)
         
         with ThreadPoolExecutor(max_workers=workers) as ex:
-            futures = [ex.submit(check_one, p) for p in unchecked]
+            futures = [ex.submit(check_one, p) for p in self.checking_list]
             for f in as_completed(futures):
                 try:
                     f.result()
@@ -601,29 +664,26 @@ class ProxyCheckerGUI:
         filtered = []
         
         for p in self.proxies:
-            # text search
             if txt:
                 if txt not in p.get('host', '').lower() and \
                    txt not in p.get('country', '').lower() and \
                    txt not in p.get('provider', '').lower():
                     continue
             
-            # include countries
             if inc_c:
                 if p.get('country', '').upper() not in inc_c:
                     continue
             
-            # port filter
-            if port and port != 'Все':
+            port_all_ru = locales.get_text('ru', 'port_all')
+            port_all_en = locales.get_text('en', 'port_all')
+            if port and port != port_all_ru and port != port_all_en:
                 if str(p.get('port', '')) != port:
                     continue
             
-            # exclude countries
             if exc_c:
                 if p.get('country', '').upper() in exc_c:
                     continue
             
-            # exclude ports
             if exc_p:
                 if str(p.get('port', '')).strip() in exc_p:
                     continue
@@ -744,14 +804,29 @@ class ProxyCheckerGUI:
     
     def save_results(self):
         try:
-            f = open('proxy_results.json', 'w', encoding='utf-8')
-            json.dump(self.proxies, f, indent=2, ensure_ascii=False)
-            f.close()
-            messagebox.showinfo(locales.get_text(self.current_lang, 'msg_ok'), 
-                               locales.get_text(self.current_lang, 'msg_saved'))
+            # Добавляем ури для прокси в self.proxies
+            proxies_with_uri = []
+            for p in self.proxies:
+                proxy_copy = p.copy()
+                
+                # tg://proxy?server=&port=&secret=
+                h = p.get('host', '')
+                port = p.get('port', '')
+                secret = p.get('secret', '')
+                
+                if h and port and secret:
+                    proxy_copy['uri'] = f"tg://proxy?server={h}&port={port}&secret={secret}"
+                else:
+                    proxy_copy['uri'] = None
+                
+                proxies_with_uri.append(proxy_copy)
+            
+            with open('proxy_results.json', 'w', encoding='utf-8') as f:
+                json.dump(proxies_with_uri, f, indent=2, ensure_ascii=False)
+            
+            messagebox.showinfo(locales.get_text(self.current_lang, 'msg_ok'), locales.get_text(self.current_lang, 'msg_saved'))
         except Exception as e:
-            messagebox.showerror(locales.get_text(self.current_lang, 'msg_error'), 
-                                locales.get_text(self.current_lang, 'msg_save_error') % e)
+            messagebox.showerror(locales.get_text(self.current_lang, 'msg_error'), locales.get_text(self.current_lang, 'msg_save_error') % e)
 
 
 def main():
