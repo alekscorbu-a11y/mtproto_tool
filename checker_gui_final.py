@@ -10,12 +10,12 @@ import json
 import netifaces
 import re
 import pycountry
+from countryinfo import CountryInfo
 import locales
 # import sys
 
 # TODO: move to config file
 API_URL = 'https://mtpro.xyz/api/?type=mtproto'
-GEONAMES_URL = 'https://www.geonames.org/countries/{code}/'
 DEFAULT_PING_COUNT = 3
 PING_TIMEOUT = 5
 REQUEST_TIMEOUT = 10
@@ -196,28 +196,30 @@ class ProxyCheckerGUI:
         scrollbar = ttk.Scrollbar(tree_frame)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
-        cols = (locales.get_text(self.current_lang, 'col_num'), 
-                locales.get_text(self.current_lang, 'col_status'), 
-                locales.get_text(self.current_lang, 'col_ping'), 
-                locales.get_text(self.current_lang, 'col_host'), 
-                locales.get_text(self.current_lang, 'col_port'), 
-                locales.get_text(self.current_lang, 'col_country'), 
-                locales.get_text(self.current_lang, 'col_provider'), 
-                locales.get_text(self.current_lang, 'col_uptime'))
+        # Use constant column IDs, localize only headings
+        cols = ("num", "status", "ping", "host", "port", "country", "provider", "uptime")
         self.tree = ttk.Treeview(tree_frame, columns=cols, show="headings", yscrollcommand=scrollbar.set)
         scrollbar.config(command=self.tree.yview)
         
-        for col in cols:
-            self.tree.heading(col, text=col)
+        # Set localized headings
+        self.tree.heading("num", text=locales.get_text(self.current_lang, 'col_num'))
+        self.tree.heading("status", text=locales.get_text(self.current_lang, 'col_status'))
+        self.tree.heading("ping", text=locales.get_text(self.current_lang, 'col_ping'))
+        self.tree.heading("host", text=locales.get_text(self.current_lang, 'col_host'))
+        self.tree.heading("port", text=locales.get_text(self.current_lang, 'col_port'))
+        self.tree.heading("country", text=locales.get_text(self.current_lang, 'col_country'))
+        self.tree.heading("provider", text=locales.get_text(self.current_lang, 'col_provider'))
+        self.tree.heading("uptime", text=locales.get_text(self.current_lang, 'col_uptime'))
         
-        self.tree.column("№", width=50, anchor=tk.CENTER, stretch=False)
-        self.tree.column("Статус", width=70, anchor=tk.CENTER, stretch=False)
-        self.tree.column("Ping", width=100, anchor=tk.CENTER, stretch=False)
-        self.tree.column("Host", width=400, stretch=True)
-        self.tree.column("Port", width=70, anchor=tk.CENTER, stretch=False)
-        self.tree.column("Country", width=70, anchor=tk.CENTER, stretch=False)
-        self.tree.column("Provider", width=250, stretch=True)
-        self.tree.column("Uptime", width=90, anchor=tk.CENTER, stretch=False)
+        # Set column widths using constant IDs
+        self.tree.column("num", width=50, anchor=tk.CENTER, stretch=False)
+        self.tree.column("status", width=70, anchor=tk.CENTER, stretch=False)
+        self.tree.column("ping", width=100, anchor=tk.CENTER, stretch=False)
+        self.tree.column("host", width=400, stretch=True)
+        self.tree.column("port", width=70, anchor=tk.CENTER, stretch=False)
+        self.tree.column("country", width=70, anchor=tk.CENTER, stretch=False)
+        self.tree.column("provider", width=250, stretch=True)
+        self.tree.column("uptime", width=90, anchor=tk.CENTER, stretch=False)
         
         self.tree.pack(fill=tk.BOTH, expand=True)
         self.tree.bind('<Double-1>', self.show_details)
@@ -253,27 +255,41 @@ class ProxyCheckerGUI:
                                   locales.get_text(self.current_lang, 'msg_country_code_error'))
             return
         
-        # HACK: geonames doesn't have proper API, scraping HTML
-        url = GEONAMES_URL.format(code=code)
         try:
-            resp = requests.get(url, timeout=REQUEST_TIMEOUT)
-            resp.raise_for_status()
-        except:
+            country = CountryInfo(code)
+            alpha3_borders = country.borders()
+            
+            if not alpha3_borders:
+                # Island nation or country without land borders
+                messagebox.showinfo(locales.get_text(self.current_lang, 'msg_neighbors_result'), 
+                                   locales.get_text(self.current_lang, 'msg_no_land_borders'))
+                return
+            
+            # Convert Alpha-3 to Alpha-2
+            alpha2_borders = []
+            for alpha3_code in alpha3_borders:
+                try:
+                    country_obj = pycountry.countries.get(alpha_3=alpha3_code)
+                    if country_obj:
+                        alpha2_borders.append(country_obj.alpha_2)
+                except:
+                    pass  # Skip invalid codes
+            
+            if alpha2_borders:
+                alpha2_borders = sorted(set(alpha2_borders))
+                self.include_countries_var.set(",".join(alpha2_borders))
+                self.apply_filter()
+            else:
+                messagebox.showinfo(locales.get_text(self.current_lang, 'msg_neighbors_result'), 
+                                   locales.get_text(self.current_lang, 'msg_no_neighbors'))
+        except KeyError:
+            # Country not found in CountryInfo database
             messagebox.showerror(locales.get_text(self.current_lang, 'msg_error'), 
-                                locales.get_text(self.current_lang, 'msg_fetch_error'))
-            return
-        
-        start = resp.text.find("neighbours")
-        section = resp.text[start:start+1500] if start != -1 else resp.text
-        codes = re.findall(r"/countries/([A-Z]{2})/", section)
-        codes = sorted(set(codes))
-        
-        if codes:
-            self.include_countries_var.set(",".join(codes))
-            self.apply_filter()
-        else:
-            messagebox.showinfo(locales.get_text(self.current_lang, 'msg_neighbors_result'), 
-                               locales.get_text(self.current_lang, 'msg_no_neighbors'))
+                                locales.get_text(self.current_lang, 'msg_country_not_found'))
+        except Exception as e:
+            # General error with CountryInfo
+            messagebox.showerror(locales.get_text(self.current_lang, 'msg_error'), 
+                                locales.get_text(self.current_lang, 'msg_countryinfo_error'))
     
     def start_loading(self):
         self.start_btn.config(state=tk.DISABLED)
@@ -300,8 +316,18 @@ class ProxyCheckerGUI:
         self.config['language'] = self.current_lang
         save_config(self.config)
         
+        # Update tree headings immediately
+        self.tree.heading("num", text=locales.get_text(self.current_lang, 'col_num'))
+        self.tree.heading("status", text=locales.get_text(self.current_lang, 'col_status'))
+        self.tree.heading("ping", text=locales.get_text(self.current_lang, 'col_ping'))
+        self.tree.heading("host", text=locales.get_text(self.current_lang, 'col_host'))
+        self.tree.heading("port", text=locales.get_text(self.current_lang, 'col_port'))
+        self.tree.heading("country", text=locales.get_text(self.current_lang, 'col_country'))
+        self.tree.heading("provider", text=locales.get_text(self.current_lang, 'col_provider'))
+        self.tree.heading("uptime", text=locales.get_text(self.current_lang, 'col_uptime'))
+        
         self.root.title(locales.get_text(self.current_lang, 'app_title'))
-        msg = 'Language changed. Restart app for full effect.' if self.current_lang == 'en' else 'Язык изменен. Перезапустите приложение.'
+        msg = 'Language changed. Restart app for full effect.' if self.current_lang == 'en' else 'Язык изменен. Перезапустите приложение для полной смены языка.'
         messagebox.showinfo(locales.get_text(self.current_lang, 'msg_ok'), msg)
 
     def get_interfaces(self):
