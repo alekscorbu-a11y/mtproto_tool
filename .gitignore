@@ -1,4 +1,5 @@
 __pycache__
+.DS_Store
 proxy_results.json
 DS_Store
 *.bak
