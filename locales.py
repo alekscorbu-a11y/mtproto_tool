@@ -1,6 +1,3 @@
-# -*- coding: utf-8 -*-
-# Localization strings
-
 LANGUAGES = {
     'ru': {
         'app_title': 'MTProto Proxy Checker',
@@ -44,14 +41,12 @@ LANGUAGES = {
         'col_provider': 'Provider',
         'col_uptime': 'Uptime',
         
-        # Status values
         'status_unknown': '?',
         'status_ok': 'OK',
         'status_dead': 'X',
         'ping_not_checked': 'не проверен',
         'ping_dead': 'мертв',
         
-        # Messages
         'msg_error': 'Ошибка',
         'msg_country_code_error': 'Нужен 2-буквенный код (RU, US, etc)',
         'msg_fetch_error': 'Не смог получить данные',
@@ -73,7 +68,6 @@ LANGUAGES = {
         'msg_saved': 'Сохранено в proxy_results.json',
         'msg_save_error': 'Не сохранилось: %s',
         
-        # QR window
         'qr_title': 'QR Код',
         'qr_country': 'Страна:',
         'qr_provider': 'Провайдер:',
@@ -83,7 +77,6 @@ LANGUAGES = {
         'qr_not_checked': 'не проверен',
         'btn_copy_uri': 'Копировать URI',
         
-        # Language
         'label_language': 'Язык:',
     },
     
@@ -119,7 +112,6 @@ LANGUAGES = {
         'btn_find': 'Find',
         'port_all': 'All',
         
-        # Tree columns
         'col_num': '#',
         'col_status': 'Status',
         'col_ping': 'Ping',
@@ -129,14 +121,12 @@ LANGUAGES = {
         'col_provider': 'Provider',
         'col_uptime': 'Uptime',
         
-        # Status values
         'status_unknown': '?',
         'status_ok': 'OK',
         'status_dead': 'X',
         'ping_not_checked': 'not checked',
         'ping_dead': 'dead',
         
-        # Messages
         'msg_error': 'Error',
         'msg_country_code_error': 'Need 2-letter code (RU, US, etc)',
         'msg_fetch_error': 'Failed to fetch data',
@@ -158,7 +148,6 @@ LANGUAGES = {
         'msg_saved': 'Saved to proxy_results.json',
         'msg_save_error': 'Failed to save: %s',
         
-        # QR window
         'qr_title': 'QR Code',
         'qr_country': 'Country:',
         'qr_provider': 'Provider:',
@@ -168,15 +157,12 @@ LANGUAGES = {
         'qr_not_checked': 'not checked',
         'btn_copy_uri': 'Copy URI',
         
-        # Language
         'label_language': 'Language:',
     }
 }
 
-# TODO: add more languages (Hindi, PT, ES, FR, etc)
 
 def get_text(lang, key):
-    """Get localized text"""
     if lang not in LANGUAGES:
         lang = 'en'  # fallback
     return LANGUAGES[lang].get(key, key)

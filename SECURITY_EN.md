@@ -34,24 +34,43 @@ If you discover a security vulnerability, please report it responsibly.
 
 ## Security Guidelines
 
+### Dependencies
+
+**Required:**
+- `qrcode` - QR code generation (uses qrcode 7.x+)
+
+**Optional:**
+- `pyperclip` - clipboard operations (used only in CLI mode)
+
+**System:**
+- tkinter - GUI library (included in standard Python installation)
+- curses - CLI interface (included in standard Python installation, except Windows)
+
+All dependencies are specified in `requirements.txt`. Recommended to install via pip.
+
+**Operation modes:**
+- GUI mode (default): requires tkinter
+- CLI mode (`--cli`): requires curses, runs in terminal
+
 ### For Users
 
 - ✅ Always use the latest version
-- ✅ Install dependencies only from `requirements.txt`
+- ✅ Install dependencies only from official sources
 - ✅ Verify proxy servers before use
-- ⚠️ Don't use proxies from untrusted sources
-- ⚠️ Be careful with `config.json` - it may contain personal settings
 
 ### Application Features
 
 **Network Activity:**
-- Application sends requests to mtpro.xyz API to fetch proxy list
+- Application sends requests to two sources for proxy list:
+  - mtpro.xyz API
+  - vanced.to
 - Application performs ping requests to proxy servers for availability check
-- Application may send requests to Geonames.org for neighboring countries search
+- All requests use Python standard libraries (urllib)
 
 **Local Data:**
-- `config.json` - stores selected language
+- `config.json` - stores settings (language, ping parameters and timeouts)
 - `proxy_results.json` - saved proxy check results
+- `countries_data.json` - built-in countries database and their borders
 
 **What the Application DOES NOT do:**
 - Does not collect personal data
@@ -59,24 +78,22 @@ If you discover a security vulnerability, please report it responsibly.
 - Does not connect to proxies for actual use (ping only)
 - Does not modify system settings
 
-### Dependency Security
+### Code Security
 
-Used libraries are regularly checked for vulnerabilities:
+The application uses only Python standard library, which minimizes security risks:
 
-- `requests` - HTTP client
-- `netifaces` - network interface information
-- `qrcode[pil]` - QR code generation
-- `pillow` - image processing
-- `pycountry` - country database
-- `countryinfo` - country information
+- No external dependencies that may contain vulnerabilities
+- All code can be audited in the source file
+- SSL/TLS certificate verification by default (with fallback on errors)
 
-**Recommendation**: periodically update dependencies via `pip install -r requirements.txt --upgrade`
+**Recommendation**: periodically update Python to the latest stable version
 
 ## Known Limitations
 
 1. **Ping on Windows**: requires administrator rights for ICMP ping
-2. **mtpro.xyz API**: application depends on external API availability
-3. **Rate limiting**: frequent API requests may be throttled
+2. **Data sources**: application depends on external sources availability (mtpro.xyz, vanced.to)
+3. **Rate limiting**: frequent requests may be throttled by sources
+4. **SSL fallback**: on SSL certificate errors, the application may disable verification
 
 ## License and Liability
 
@@ -84,4 +101,4 @@ This software is provided "as is" under the MIT license. Authors are not respons
 
 ---
 
-*Last updated: January 27, 2026*
+*Last updated: March 7, 2026*
