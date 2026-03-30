@@ -1,104 +1,105 @@
-# 🔒 Политика безопасности
+# 🔒 Security Policy
 
-[🇬🇧 English version](SECURITY_EN.md)
+[🇷🇺 Русская версия](SECURITY_RU.md)
 
-## Поддерживаемые версии
+## Supported Versions
 
-В настоящее время поддерживается только последняя версия проекта.
+Currently, only the latest version of the project is supported.
 
-| Версия | Поддержка          |
-| ------ | ------------------ |
-| latest | ✅ Поддерживается  |
-| older  | ❌ Не поддерживается |
+| Version | Support            |
+| ------- | ------------------ |
+| latest  | ✅ Supported       |
+| older   | ❌ Not supported   |
 
-## Сообщить об уязвимости
+## Reporting a Vulnerability
 
-Если вы обнаружили уязвимость в безопасности, пожалуйста, сообщите об этом ответственно.
+If you discover a security vulnerability, please report it responsibly.
 
-### Как сообщить
+### How to Report
 
-1. **Не создавайте публичные issue** для критических проблем безопасности
-2. Отправьте описание уязвимости напрямую автору проекта
-3. Включите максимально подробную информацию:
-   - Описание уязвимости
-   - Шаги для воспроизведения
-   - Потенциальное влияние
-   - Предложения по исправлению (если есть)
+1. **Do not create public issues** for critical security problems
+2. Send vulnerability description directly to the project author
+3. Include as much detail as possible:
+   - Vulnerability description
+   - Steps to reproduce
+   - Potential impact
+   - Suggested fixes (if any)
 
-### Что ожидать
+### What to Expect
 
-- **Подтверждение**: получение в течение 48 часов
-- **Обновления**: регулярные обновления о прогрессе
-- **Исправление**: патч в течение 7-14 дней (в зависимости от сложности)
-- **Публикация**: координированное раскрытие после исправления
+- **Acknowledgment**: within 48 hours
+- **Updates**: regular progress updates
+- **Fix**: patch within 7-14 days (depending on complexity)
+- **Disclosure**: coordinated disclosure after fix
 
-## Рекомендации по безопасности
+## Security Guidelines
 
-### Зависимости
+### Dependencies
 
-**Обязательные:**
-- `qrcode` - генерация QR-кодов (используется qrcode 7.x+)
+**Required:**
+- `qrcode` - QR code generation (uses qrcode 7.x+)
 
-**Опциональные:**
-- `pyperclip` - работа с буфером обмена (используется только в CLI режиме)
+**Optional:**
+- `pyperclip` - clipboard operations (used only in CLI mode)
 
-**Системные:**
-- tkinter - GUI библиотека (входит в стандартную установку Python)
-- curses - CLI интерфейс (входит в стандартную установку Python, кроме Windows)
+**System:**
+- tkinter - GUI library (included in standard Python installation)
+- curses - CLI interface (included in standard Python installation, except Windows)
 
-Все зависимости указаны в `requirements.txt`. Рекомендуется устанавливать через pip.
+All dependencies are specified in `requirements.txt`. Recommended to install via pip.
 
-**Режимы работы:**
-- GUI режим (по умолчанию): требует tkinter
-- CLI режим (`--cli`): требует curses, работает в терминале
+**Operation modes:**
+- GUI mode (default): requires tkinter
+- CLI mode (`--cli`): requires curses, runs in terminal
 
-### Для пользователей
+### For Users
 
-- ✅ Всегда используйте последнюю версию
-- ✅ Устанавливайте зависимости только из официальных источников
-- ✅ Проверяйте подлинность прокси-серверов перед использованием
+- ✅ Always use the latest version
+- ✅ Install dependencies only from official sources
+- ✅ Verify proxy servers before use
 
-### Особенности приложения
+### Application Features
 
-**Сетевая активность:**
-- Приложение отправляет запросы к двум источникам для получения списка прокси:
+**Network Activity:**
+- Application sends requests to two sources for proxy list:
   - mtpro.xyz API
   - vanced.to
-- Приложение выполняет ping-запросы к прокси-серверам для проверки доступности
-- Все запросы используют стандартные библиотеки Python (urllib)
+- Import function can fetch data from any user-provided URL
+- Application performs ping requests to proxy servers for availability check
+- All requests use Python standard libraries (urllib)
 
-**Локальные данные:**
-- `config.json` - хранит настройки (язык, параметры ping и таймауты)
-- `proxy_results.json` - сохраненные результаты проверки прокси
-- `countries_data.json` - встроенная база данных стран и их границ
+**Local Data:**
+- `config.json` - stores settings (language, ping parameters and timeouts)
+- `proxy_results.json` - saved proxy check results
+- `countries_data.json` - built-in countries database and their borders
 
-**Что НЕ делает приложение:**
-- Не собирает личные данные
-- Не отправляет аналитику
-- Не подключается к прокси для реального использования (только ping)
-- Не изменяет системные настройки
+**What the Application DOES NOT do:**
+- Does not collect personal data
+- Does not send analytics
+- Does not connect to proxies for actual use (ping only)
+- Does not modify system settings
 
-### Безопасность кода
+### Code Security
 
-Приложение использует только стандартную библиотеку Python, что минимизирует риски безопасности:
+The application uses only Python standard library, which minimizes security risks:
 
-- Нет внешних зависимостей, которые могут содержать уязвимости
-- Весь код можно проверить в исходном файле
-- SSL/TLS проверка сертификатов по умолчанию (с fallback при ошибках)
+- No external dependencies that may contain vulnerabilities
+- All code can be audited in the source file
+- SSL/TLS certificate verification by default (with fallback on errors)
 
-**Рекомендация**: периодически обновляйте Python до последней стабильной версии
+**Recommendation**: periodically update Python to the latest stable version
 
-## Известные ограничения
+## Known Limitations
 
-1. **Ping на Windows**: требуются права администратора для ICMP ping
-2. **Источники данных**: приложение зависит от доступности внешних источников (mtpro.xyz, vanced.to)
-3. **Rate limiting**: частые запросы могут быть ограничены источниками
-4. **SSL fallback**: при ошибках SSL-сертификатов приложение может отключить проверку
+1. **Ping on Windows**: requires administrator rights for ICMP ping
+2. **Data sources**: application depends on external sources availability (mtpro.xyz, vanced.to)
+3. **Rate limiting**: frequent requests may be throttled by sources
+4. **SSL fallback**: on SSL certificate errors, the application may disable verification
 
-## Лицензия и ответственность
+## License and Liability
 
-Данное программное обеспечение предоставляется "как есть" в соответствии с лицензией MIT. Авторы не несут ответственности за использование приложения или прокси-серверов.
+This software is provided "as is" under the MIT license. Authors are not responsible for application use or proxy servers.
 
 ---
 
-*Последнее обновление: 7 марта 2026*
+*Last updated: March 30, 2026*

@@ -1,2 +1,3 @@
 qrcode
+curses  # Not included in windows by default
 # pyperclip  # For clipboard support in curses mode (optional)

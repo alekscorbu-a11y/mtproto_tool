@@ -1,131 +1,136 @@
 # MTProto Proxy Checker
 
-[🇬🇧 English version](README_EN.md)
+[🇷🇺 Русская версия](README_RU.md)
 
-Простой массовый фетчер и чекер MTProto прокси с GUI и CLI интерфейсами.
+Simple MTProto proxy checker with GUI and CLI interfaces.
 
-## Возможности
+## Features
 
-- **Два режима работы**: GUI (tkinter) и CLI (curses для терминала)
-- Загрузка списка прокси с двух источников (mtpro.xyz и vanced.to)
-- Многопоточная проверка ping (10-200 потоков)
-- Фильтрация по странам, портам (включение/исключение)
-- Поиск прокси в соседних странах
-- Генерация QR-кодов для Telegram (графические в GUI, ASCII в CLI)
-- Сохранение результатов в JSON
-- Русский и английский языки интерфейса
-- Минимальные зависимости (только qrcode)
+- **Two operation modes**: GUI (tkinter) and CLI (curses for terminal)
+- Load proxy list from two sources (mtpro.xyz and vanced.to)
+- Import proxies from external sources (URL or file)
+- Auto-detection of JSON and tg://proxy formats
+- Robust parser for dirty data (emojis, Markdown artifacts, broken lines)
+- Multi-threaded ping check (10-200 workers)
+- Filter by countries, ports (include/exclude)
+- Find proxies in neighboring countries
+- Generate QR codes for Telegram (graphical in GUI, ASCII in CLI)
+- Save results to JSON
+- Russian and English UI
+- Minimal dependencies (only qrcode)
 
-## Установка
+## Installation
 
-### Зависимости
+### Dependencies
 
-**Обязательные:**
+**Required:**
 - Python 3.7+
-- tkinter (для GUI режима)
-- qrcode (для генерации QR-кодов)
+- tkinter (for GUI mode)
+- qrcode (for QR code generation)
 
-**Опциональные:**
-- pyperclip (для копирования в буфер обмена в CLI режиме)
+**Optional:**
+- pyperclip (for clipboard support in CLI mode)
 
-### Установка зависимостей
+### Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### Платформо-специфичные требования
+### Platform-specific requirements
 
-**macOS**: если tkinter не установлен:
+**macOS**: if tkinter is not installed:
 ```bash
 brew install python-tk@3.12
 ```
 
-**Linux**: tkinter обычно включен в Python, но если нужно:
+**Linux**: tkinter is usually included with Python, but if needed:
 ```bash
 sudo apt-get install python3-tk  # Debian/Ubuntu
 sudo dnf install python3-tkinter  # Fedora
 ```
 
-**Windows**: tkinter включен в стандартную установку Python
+**Windows**: tkinter is included in standard Python installation
 
-## Запуск
+## Usage
 
-### GUI режим (по умолчанию)
+### GUI mode (default)
 
 ```bash
 python mtprotool.py
 ```
 
-### CLI режим (curses интерфейс)
+### CLI mode (curses interface)
 
 ```bash
 python mtprotool.py --cli
-# или
+# or
 python mtprotool.py -c
 ```
 
-**CLI режим:**
-- Текстовый интерфейс для терминала
-- Работает без GUI (tkinter)
-- ASCII QR-коды
-- Навигация: стрелки/vim-клавиши (hjkl), Page Up/Down, Home/End
-- Горячие клавиши:
-  - F1: помощь
-  - F2: загрузить прокси
-  - F3: начать/остановить проверку
-  - F4: сохранить результаты
-  - F5: фильтры
-  - F6: только живые
-  - F7: показать все
-  - F10/q: выход
-  - Enter: показать QR-код
-  - /: поиск
-  - l: сменить язык
-  - +/-: изменить batch size
+**CLI mode:**
+- Text-based terminal interface
+- Works without GUI (tkinter)
+- ASCII QR codes
+- Navigation: arrows/vim keys (hjkl), Page Up/Down, Home/End
+- Hotkeys:
+  - F1: help
+  - F2: load proxies
+  - F3: start/stop checking
+  - F4: save results
+  - F5: filters
+  - F6: show only alive
+  - F7: show all
+  - F8: import proxies (URL/file)
+  - F10/q: quit
+  - Enter: show QR code
+  - /: search
+  - l: change language
+  - +/-: adjust batch size
 
-## Как пользоваться
+## How to Use
 
-1. **Получить список** - загрузить прокси с двух источников (mtpro.xyz и vanced.to)
-2. **Начать проверку** - запустить ping всех прокси
-3. Используйте фильтры для отбора нужных прокси
-4. Двойной клик по прокси = QR-код для Telegram
-5. **Сохранить** - экспорт в `proxy_results.json`
+1. **Load List** - fetch proxies from two sources (mtpro.xyz and vanced.to)
+2. **Import** - add proxies from external URL or local file (.txt, .json, or any text with tg://proxy links)
+3. **Start Check** - ping all proxies
+4. Use filters to select needed proxies
+5. Double-click on proxy = QR code for Telegram
+6. **Save** - export to `proxy_results.json`
 
-## Фильтры
+## Filters
 
-- **Поиск** - по хосту, стране, провайдеру
-- **Страны** - включить конкретные (RU,US,DE)
-- **Исключить** - убрать страны или порты
-- **Порт** - фильтр по конкретному порту
-- **Соседи** - найти прокси в соседних странах (вводите код страны)
+- **Search** - by host, country, provider
+- **Countries** - include specific (RU,US,DE)
+- **Exclude** - remove countries or ports
+- **Port** - filter by specific port
+- **Neighbors** - find proxies in neighboring countries (enter country code)
 
-## Смена языка
+## Language Switch
 
-Выберите язык в правом верхнем углу. При следующем запуске язык сохранится.
+Select language in top-right corner. Your choice will be saved.
 
-## Файлы
+## Files
 
-- `mtprotool.py` - основное приложение
-- `locales.py` - переводы
-- `countries_data.json` - база данных стран и границ
-- `config.json` - настройки (создается автоматически)
-- `proxy_results.json` - сохраненные результаты
+- `mtprotool.py` - main application
+- `locales.py` - translations
+- `countries_data.json` - countries database and borders
+- `config.json` - settings (auto-created)
+- `proxy_results.json` - saved results
 
-## Требования
+## Requirements
 
 - Python 3.7+
-- tkinter (см. раздел Установка)
-- Только стандартная библиотека Python
+- tkinter (see Installation section)
+- Python standard library only
 
-## 🔒 Безопасность
+## 🔒 Security
 
-Подробную информацию о политике безопасности см. в [SECURITY.md](SECURITY.md)
+For detailed security policy, see [SECURITY.md](SECURITY.md)
 
-## Лицензия
+## License
 
 MIT
 
 ---
 
-*Простой скрипт для массового получения проверки MTProto прокси. Работает на macOS, Linux, Windows.*
+*Simple script for checking MTProto proxies. Works on macOS, Linux, Windows.*

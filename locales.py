@@ -78,6 +78,18 @@ LANGUAGES = {
         'btn_copy_uri': 'Копировать URI',
         
         'label_language': 'Язык:',
+
+        'btn_import': 'Импорт',
+        'import_title': 'Импорт прокси',
+        'import_from_url': 'Из ссылки (URL)',
+        'import_from_file': 'Из файла',
+        'import_url_prompt': 'Введите URL:',
+        'import_loading': 'Загрузка...',
+        'import_result': 'Импортировано: %d | Дубликаты: %d | Ошибки: %d',
+        'import_error': 'Ошибка импорта: %s',
+        'import_no_proxies': 'Не найдено прокси',
+        'import_file_title': 'Выбрать файл',
+        'import_file_path': 'Путь к файлу:',
     },
     
     'en': {
@@ -158,6 +170,18 @@ LANGUAGES = {
         'btn_copy_uri': 'Copy URI',
         
         'label_language': 'Language:',
+
+        'btn_import': 'Import',
+        'import_title': 'Import Proxies',
+        'import_from_url': 'From URL',
+        'import_from_file': 'From File',
+        'import_url_prompt': 'Enter URL:',
+        'import_loading': 'Loading...',
+        'import_result': 'Imported: %d | Duplicates: %d | Errors: %d',
+        'import_error': 'Import error: %s',
+        'import_no_proxies': 'No proxies found',
+        'import_file_title': 'Select file',
+        'import_file_path': 'File path:',
     }
 }
 

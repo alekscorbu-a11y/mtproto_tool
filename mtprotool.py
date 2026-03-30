@@ -306,6 +306,139 @@ def parse_vanced_proxies():
         return []
 
 
+def parse_proxy_uri(raw_uri):
+    if not raw_uri or 'tg://proxy' not in raw_uri.lower():
+        return None
+
+    cleaned = re.sub(r'[\u200b\u200c\u200d\u200e\u200f\ufeff\ufffe]', '', raw_uri)
+    cleaned = re.sub(r'[\U00010000-\U0010ffff]', '', cleaned)
+    cleaned = re.sub(r'[*`\[\](){}|\\]', '', cleaned)
+    cleaned = re.sub(r'[^a-zA-Z0-9:/?&=._\-+%]', '', cleaned)
+
+    try:
+        parsed = urlparse(cleaned)
+        params = parse_qs(parsed.query)
+
+        server = params.get('server', [None])[0]
+        port_str = params.get('port', [None])[0]
+        secret = params.get('secret', [None])[0]
+
+        if not server or not port_str or not secret:
+            return None
+
+        try:
+            port = int(port_str)
+        except (ValueError, TypeError):
+            return None
+        if port < 1 or port > 65535:
+            return None
+
+        return create_proxy_dict(
+            host=server,
+            port=port,
+            secret=secret,
+            provider='imported'
+        )
+    except Exception:
+        return None
+
+
+def parse_proxy_text(text):
+    if not text or not text.strip():
+        return [], []
+
+    stripped = text.strip()
+
+    if stripped.startswith('[') or stripped.startswith('{'):
+        try:
+            data = json.loads(stripped)
+            if isinstance(data, dict):
+                data = [data]
+            if isinstance(data, list):
+                proxies = []
+                failed = []
+                for item in data:
+                    if isinstance(item, dict) and item.get('host') and item.get('port') and item.get('secret'):
+                        proxies.append(create_proxy_dict(
+                            host=item['host'],
+                            port=item['port'],
+                            secret=item['secret'],
+                            country=item.get('country', 'N/A'),
+                            provider='imported',
+                            uptime=item.get('uptime', 'N/A')
+                        ))
+                    elif isinstance(item, dict):
+                        failed.append(str(item)[:100])
+                if proxies:
+                    return proxies, failed
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    parts = re.split(r'(?=tg://proxy\?)', text, flags=re.IGNORECASE)
+    raw_matches = []
+    for p in parts:
+        if not p.strip().lower().startswith('tg://proxy'):
+            continue
+        cleaned = re.sub(r'[\s]+', '', p)
+        m = re.match(r'tg://proxy\?[a-zA-Z0-9&=+/_%\-.:]*', cleaned, re.IGNORECASE)
+        if m:
+            raw_matches.append(m.group(0))
+
+    proxies = []
+    failed = []
+    seen = set()
+
+    for raw in raw_matches:
+        proxy = parse_proxy_uri(raw)
+        if proxy:
+            key = (proxy['host'], proxy['port'], proxy['secret'])
+            if key not in seen:
+                seen.add(key)
+                proxies.append(proxy)
+        else:
+            short = raw[:120].strip()
+            if short:
+                failed.append(short)
+
+    return proxies, failed
+
+
+def import_proxies_from_url(url):
+    try:
+        content = _fetch_url(url, BROWSER_HEADERS)
+        return parse_proxy_text(content)
+    except Exception as e:
+        return [], [str(e)]
+
+
+def import_proxies_from_file(filepath):
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            content = f.read()
+    except UnicodeDecodeError:
+        with open(filepath, 'r', encoding='latin-1') as f:
+            content = f.read()
+    return parse_proxy_text(content)
+
+
+def merge_proxies(existing, new_proxies):
+    existing_keys = set()
+    for p in existing:
+        existing_keys.add((p.get('host', ''), p.get('port', 0), p.get('secret', '')))
+
+    added = 0
+    skipped = 0
+    for p in new_proxies:
+        key = (p.get('host', ''), p.get('port', 0), p.get('secret', ''))
+        if key in existing_keys:
+            skipped += 1
+        else:
+            existing_keys.add(key)
+            existing.append(p)
+            added += 1
+    return added, skipped
+
+
 def generate_ascii_qr(uri):
     try:
         import qrcode
@@ -392,6 +525,14 @@ class ProxyCheckerGUI:
             width=10
         )
         self.save_btn.pack(side=tk.LEFT, padx=5)
+        
+        self.import_btn = ttk.Button(
+            top,
+            text=locales.get_text(self.current_lang, 'btn_import'),
+            command=self.show_import_dialog,
+            width=10
+        )
+        self.import_btn.pack(side=tk.LEFT, padx=5)
         
         self.label_batch = ttk.Label(top, text=locales.get_text(self.current_lang, 'label_batch'))
         self.label_batch.pack(side=tk.LEFT, padx=(10, 5))
@@ -608,6 +749,7 @@ class ProxyCheckerGUI:
         else:
             self.check_btn.config(text=locales.get_text(self.current_lang, 'btn_check'))
         self.save_btn.config(text=locales.get_text(self.current_lang, 'btn_save'))
+        self.import_btn.config(text=locales.get_text(self.current_lang, 'btn_import'))
         
         if self.filter_visible.get():
             self.toggle_filter_btn.config(text="▶ " + locales.get_text(self.current_lang, 'btn_filters'))
@@ -1022,6 +1164,123 @@ class ProxyCheckerGUI:
         except Exception as e:
             messagebox.showerror(locales.get_text(self.current_lang, 'msg_error'), locales.get_text(self.current_lang, 'msg_save_error') % e)
 
+    def show_import_dialog(self):
+        dialog = tk.Toplevel(self.root)
+        dialog.title(locales.get_text(self.current_lang, 'import_title'))
+        dialog.geometry("420x200")
+        dialog.resizable(False, False)
+        dialog.transient(self.root)
+        dialog.grab_set()
+
+        dialog.update_idletasks()
+        x = self.root.winfo_x() + (self.root.winfo_width() - 420) // 2
+        y = self.root.winfo_y() + (self.root.winfo_height() - 200) // 2
+        dialog.geometry(f"+{x}+{y}")
+
+        main_frame = ttk.Frame(dialog, padding="20")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(main_frame, text=locales.get_text(self.current_lang, 'import_title'),
+                  font=("Arial", 12, "bold")).pack(pady=(0, 15))
+
+        url_frame = ttk.Frame(main_frame)
+        url_frame.pack(fill=tk.X, pady=5)
+        ttk.Label(url_frame, text=locales.get_text(self.current_lang, 'import_url_prompt')).pack(side=tk.LEFT, padx=(0, 5))
+        url_var = tk.StringVar()
+        url_entry = ttk.Entry(url_frame, textvariable=url_var, width=35)
+        url_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        btn_frame = ttk.Frame(main_frame)
+        btn_frame.pack(fill=tk.X, pady=(15, 0))
+
+        def on_url():
+            url = url_var.get().strip()
+            if url:
+                dialog.destroy()
+                self._do_import_url(url)
+
+        def on_file():
+            dialog.destroy()
+            from tkinter import filedialog
+            filepath = filedialog.askopenfilename(
+                title=locales.get_text(self.current_lang, 'import_file_title'),
+                filetypes=[
+                    ("Text / JSON", "*.txt *.json"),
+                    ("All files", "*.*")
+                ]
+            )
+            if filepath:
+                self._do_import_file(filepath)
+
+        ttk.Button(btn_frame, text=locales.get_text(self.current_lang, 'import_from_url'),
+                   command=on_url, width=18).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame, text=locales.get_text(self.current_lang, 'import_from_file'),
+                   command=on_file, width=18).pack(side=tk.LEFT, padx=5)
+
+        url_entry.bind('<Return>', lambda e: on_url())
+        url_entry.focus_set()
+
+    def _do_import_url(self, url):
+        self.stats_label.config(text=locales.get_text(self.current_lang, 'import_loading'))
+        self.import_btn.config(state=tk.DISABLED)
+
+        def worker():
+            try:
+                proxies, failed = import_proxies_from_url(url)
+                self.root.after(0, lambda: self._on_import_done(proxies, failed))
+            except Exception as e:
+                self.root.after(0, lambda: self._on_import_error(str(e)))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _do_import_file(self, filepath):
+        self.stats_label.config(text=locales.get_text(self.current_lang, 'import_loading'))
+        self.import_btn.config(state=tk.DISABLED)
+
+        def worker():
+            try:
+                proxies, failed = import_proxies_from_file(filepath)
+                self.root.after(0, lambda: self._on_import_done(proxies, failed))
+            except Exception as e:
+                self.root.after(0, lambda: self._on_import_error(str(e)))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_import_done(self, proxies, failed):
+        self.import_btn.config(state=tk.NORMAL)
+
+        if not proxies:
+            self.stats_label.config(text=locales.get_text(self.current_lang, 'import_no_proxies'))
+            if failed:
+                messagebox.showwarning(
+                    locales.get_text(self.current_lang, 'msg_error'),
+                    locales.get_text(self.current_lang, 'import_no_proxies') + f"\n({len(failed)} errors)")
+            else:
+                messagebox.showinfo(
+                    locales.get_text(self.current_lang, 'import_title'),
+                    locales.get_text(self.current_lang, 'import_no_proxies'))
+            return
+
+        added, skipped = merge_proxies(self.proxies, proxies)
+        errors = len(failed)
+
+        self.filtered_proxies = list(self.proxies)
+        self.display_proxies(self.filtered_proxies)
+
+        self.check_btn.config(state=tk.NORMAL)
+        self.save_btn.config(state=tk.NORMAL)
+
+        result_msg = locales.get_text(self.current_lang, 'import_result') % (added, skipped, errors)
+        self.stats_label.config(text=result_msg)
+        messagebox.showinfo(locales.get_text(self.current_lang, 'import_title'), result_msg)
+
+    def _on_import_error(self, error_msg):
+        self.import_btn.config(state=tk.NORMAL)
+        self.stats_label.config(text=locales.get_text(self.current_lang, 'status_waiting'))
+        messagebox.showerror(
+            locales.get_text(self.current_lang, 'msg_error'),
+            locales.get_text(self.current_lang, 'import_error') % error_msg)
+
 
 class ProxyCheckerCursesApp:
 
@@ -1044,6 +1303,7 @@ class ProxyCheckerCursesApp:
         self.neighbors_visible = False
         self.search_mode = False
         self.search_text = ""
+        self.status_message = ""
         
         self.include_countries = ""
         self.exclude_countries = ""
@@ -1196,6 +1456,9 @@ class ProxyCheckerCursesApp:
         
         elif key == curses.KEY_F7:
             self.show_all()
+        
+        elif key == curses.KEY_F8:
+            self.show_import_dialog()
         
         elif key == curses.KEY_F10 or key == ord('q'):
             return True
@@ -1470,6 +1733,7 @@ class ProxyCheckerCursesApp:
                 "  F5       - Filters dialog",
                 "  F6       - Show only alive proxies",
                 "  F7       - Show all proxies",
+                "  F8       - Import proxies (URL/file)",
                 "  F10, q   - Quit",
                 "",
                 "Other:",
@@ -1493,6 +1757,212 @@ class ProxyCheckerCursesApp:
         finally:
             del popup
     
+    def show_import_dialog(self):
+        max_y, max_x = self.stdscr.getmaxyx()
+        popup_height = min(14, max_y - 4)
+        popup_width = min(60, max_x - 4)
+        popup_y = (max_y - popup_height) // 2
+        popup_x = (max_x - popup_width) // 2
+
+        popup = curses.newwin(popup_height, popup_width, popup_y, popup_x)
+        popup.box()
+        popup.keypad(True)
+        curses.curs_set(0)
+
+        try:
+            title = " " + locales.get_text(self.current_lang, 'import_title') + " "
+            popup.addstr(0, 2, title, curses.color_pair(5) | curses.A_BOLD)
+
+            options = [
+                locales.get_text(self.current_lang, 'import_from_url'),
+                locales.get_text(self.current_lang, 'import_from_file'),
+            ]
+            selected = 0
+
+            while True:
+                for i, opt in enumerate(options):
+                    row = 3 + i * 2
+                    if row < popup_height - 2:
+                        attr = curses.color_pair(4) | curses.A_BOLD if i == selected else curses.color_pair(7)
+                        marker = "▸ " if i == selected else "  "
+                        popup.addstr(row, 4, marker + opt + " " * (popup_width - 8 - len(opt)), attr)
+
+                hint = "↑↓:Select | Enter:OK | Esc:Cancel"
+                if popup_height > 2:
+                    popup.addstr(popup_height - 2, 2, hint[:popup_width - 4], curses.color_pair(6))
+
+                popup.refresh()
+                key = popup.getch()
+
+                if key == 27:
+                    return
+                elif key == curses.KEY_UP or key == ord('k'):
+                    selected = max(0, selected - 1)
+                elif key == curses.KEY_DOWN or key == ord('j'):
+                    selected = min(len(options) - 1, selected + 1)
+                elif key == 10 or key == 13:
+                    break
+
+        except curses.error:
+            return
+        finally:
+            del popup
+
+        if selected == 0:
+            self._import_url_input()
+        else:
+            self._import_file_input()
+
+    def _import_url_input(self):
+        max_y, max_x = self.stdscr.getmaxyx()
+        popup_height = min(8, max_y - 4)
+        popup_width = min(70, max_x - 4)
+        popup_y = (max_y - popup_height) // 2
+        popup_x = (max_x - popup_width) // 2
+
+        popup = curses.newwin(popup_height, popup_width, popup_y, popup_x)
+        popup.box()
+        popup.keypad(True)
+        curses.curs_set(1)
+
+        try:
+            title = " " + locales.get_text(self.current_lang, 'import_from_url') + " "
+            popup.addstr(0, 2, title, curses.color_pair(5) | curses.A_BOLD)
+            popup.addstr(2, 2, locales.get_text(self.current_lang, 'import_url_prompt'))
+
+            url = ""
+            input_y = 3
+            input_x = 2
+            max_len = popup_width - 4
+
+            while True:
+                display = url[-(max_len):] if len(url) > max_len else url
+                popup.addstr(input_y, input_x, display + " " * (max_len - len(display)), curses.color_pair(4))
+                popup.move(input_y, input_x + len(display))
+                popup.refresh()
+
+                key = popup.getch()
+                if key == 27:
+                    curses.curs_set(0)
+                    return
+                elif key == 10 or key == 13:
+                    break
+                elif key in (curses.KEY_BACKSPACE, 127, 8):
+                    url = url[:-1]
+                elif 32 <= key <= 126:
+                    url += chr(key)
+
+        except curses.error:
+            curses.curs_set(0)
+            return
+        finally:
+            del popup
+            curses.curs_set(0)
+
+        url = url.strip()
+        if url:
+            self._do_curses_import(lambda: import_proxies_from_url(url))
+
+    def _import_file_input(self):
+        max_y, max_x = self.stdscr.getmaxyx()
+        popup_height = min(8, max_y - 4)
+        popup_width = min(70, max_x - 4)
+        popup_y = (max_y - popup_height) // 2
+        popup_x = (max_x - popup_width) // 2
+
+        popup = curses.newwin(popup_height, popup_width, popup_y, popup_x)
+        popup.box()
+        popup.keypad(True)
+        curses.curs_set(1)
+
+        try:
+            title = " " + locales.get_text(self.current_lang, 'import_from_file') + " "
+            popup.addstr(0, 2, title, curses.color_pair(5) | curses.A_BOLD)
+            popup.addstr(2, 2, locales.get_text(self.current_lang, 'import_file_path'))
+
+            filepath = ""
+            input_y = 3
+            input_x = 2
+            max_len = popup_width - 4
+
+            while True:
+                display = filepath[-(max_len):] if len(filepath) > max_len else filepath
+                popup.addstr(input_y, input_x, display + " " * (max_len - len(display)), curses.color_pair(4))
+                popup.move(input_y, input_x + len(display))
+                popup.refresh()
+
+                key = popup.getch()
+                if key == 27:
+                    curses.curs_set(0)
+                    return
+                elif key == 10 or key == 13:
+                    break
+                elif key in (curses.KEY_BACKSPACE, 127, 8):
+                    filepath = filepath[:-1]
+                elif 32 <= key <= 126:
+                    filepath += chr(key)
+
+        except curses.error:
+            curses.curs_set(0)
+            return
+        finally:
+            del popup
+            curses.curs_set(0)
+
+        filepath = filepath.strip()
+        if filepath and os.path.isfile(filepath):
+            self._do_curses_import(lambda: import_proxies_from_file(filepath))
+
+    def _do_curses_import(self, fetch_fn):
+        self.status_message = locales.get_text(self.current_lang, 'import_loading')
+        self.draw_all()
+
+        def worker():
+            try:
+                proxies, failed = fetch_fn()
+                self.ui_update_queue.put(lambda: self._on_curses_import_done(proxies, failed))
+            except Exception as e:
+                error_msg = str(e)
+                self.ui_update_queue.put(lambda: self._on_curses_import_error(error_msg))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_curses_import_done(self, proxies, failed):
+        if not proxies:
+            self.status_message = locales.get_text(self.current_lang, 'import_no_proxies')
+            self._show_curses_message(locales.get_text(self.current_lang, 'import_no_proxies'))
+            return
+
+        added, skipped = merge_proxies(self.proxies, proxies)
+        errors = len(failed)
+
+        self.filtered_proxies = list(self.proxies)
+        result_msg = locales.get_text(self.current_lang, 'import_result') % (added, skipped, errors)
+        self.status_message = result_msg
+        self._show_curses_message(result_msg)
+
+    def _on_curses_import_error(self, error_msg):
+        msg = locales.get_text(self.current_lang, 'import_error') % error_msg
+        self.status_message = msg
+        self._show_curses_message(msg)
+
+    def _show_curses_message(self, message):
+        max_y, max_x = self.stdscr.getmaxyx()
+        msg_width = min(len(message) + 6, max_x - 4)
+        popup_height = 5
+        popup_y = (max_y - popup_height) // 2
+        popup_x = (max_x - msg_width) // 2
+
+        try:
+            popup = curses.newwin(popup_height, msg_width, popup_y, popup_x)
+            popup.box()
+            popup.addstr(2, 2, message[:msg_width - 4], curses.color_pair(5))
+            popup.refresh()
+            popup.getch()
+            del popup
+        except curses.error:
+            pass
+
     def show_filters(self):
         max_y, max_x = self.stdscr.getmaxyx()
         popup_height = min(18, max_y - 4)
@@ -1577,7 +2047,7 @@ class ProxyCheckerCursesApp:
             lang_display = 'RU' if self.current_lang == 'ru' else 'EN'
             win.addstr(0, 0, f"{title} | Language: {lang_display}", curses.color_pair(5) | curses.A_BOLD)
             
-            help_text = "F2:Load | F3:Check | F4:Save | F5:Filters | F10:Quit"
+            help_text = "F2:Load | F3:Check | F4:Save | F5:Filters | F8:Import | F10:Quit"
             win.addstr(1, 0, help_text, curses.color_pair(7))
             
             win.refresh()
@@ -1661,8 +2131,10 @@ class ProxyCheckerCursesApp:
         try:
             if self.search_mode:
                 status = f"Search: {self.search_text}_"
+            elif self.status_message:
+                status = self.status_message
             else:
-                status = "[Normal] ↑↓:Navigate | Enter:Details | /:Search | F10:Quit"
+                status = "[Normal] ↑↓:Navigate | Enter:Details | /:Search | F8:Import | F10:Quit"
             
             win.addstr(0, 0, status[:self.max_x-1], curses.color_pair(6))
             win.refresh()
