@@ -307,7 +307,8 @@ def parse_vanced_proxies():
 
 
 def parse_proxy_uri(raw_uri):
-    if not raw_uri or 'tg://proxy' not in raw_uri.lower():
+    if not raw_uri or ('tg://proxy' not in raw_uri.lower() and \
+            "https://t.me/proxy" not in raw_uri.lower()):
         return None
 
     cleaned = re.sub(r'[\u200b\u200c\u200d\u200e\u200f\ufeff\ufffe]', '', raw_uri)
@@ -374,13 +375,13 @@ def parse_proxy_text(text):
         except (json.JSONDecodeError, ValueError):
             pass
 
-    parts = re.split(r'(?=tg://proxy\?)', text, flags=re.IGNORECASE)
+    parts = re.split(r'(?=(tg://proxy|https://t.me/proxy)\?)', text, flags=re.IGNORECASE)
     raw_matches = []
     for p in parts:
-        if not p.strip().lower().startswith('tg://proxy'):
+        if not p.strip().lower().startswith('tg://proxy') and not p.strip().lower().startswith('https://t.me/proxy'):
             continue
         cleaned = re.sub(r'[\s]+', '', p)
-        m = re.match(r'tg://proxy\?[a-zA-Z0-9&=+/_%\-.:]*', cleaned, re.IGNORECASE)
+        m = re.match(r'(tg://|https://t.me/)proxy\?[a-zA-Z0-9&=+/_%\-.:]*', cleaned, re.IGNORECASE)
         if m:
             raw_matches.append(m.group(0))
 
